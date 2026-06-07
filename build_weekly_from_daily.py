@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""build_weekly_from_daily.py — 從「每日」網站資料彙總出「週報」(週一~週五)。
+"""build_weekly_from_daily.py — 從「每日」網站資料彙總出「週報」(週五~下週四)。
 
-背景：原本的週報是夥伴用一段日期區間的 CSV 跑出來的，週的起訖會跑掉
-（例如 20260529-0604 把上週五 5/29 也算進來）。本工具改成以**日曆週(週一~週五)**
-為單位，直接彙總 site/data/<YYYYMMDD>/<code>.json 的分點資料，產出與原週報相同結構的
+週的定義為**週五～下週四**，對齊集保戶股權分散表的每週統計區間(2015 後每週公布，
+官方資料區間為週五到下週四)，方便與股權分散資料對比。本工具直接彙總
+site/data/<YYYYMMDD>/<code>.json 的分點資料，產出與原週報相同結構的
 site/data/weekly/<wkey>/<code>.json 與 <code>_vol.json。收盤價取自 tw_volume.db。
+不滿一週(1~4 天)就先產部分週，之後每天再跑會自動補到週四完整。
 
 用法：
     python build_weekly_from_daily.py --check 20260529-0604   # 驗證：重算舊週與夥伴原檔比對
@@ -215,35 +216,41 @@ def _latest_daily_date():
     return max(cands) if cands else None
 
 
+def _anchor_friday(d):
+    """回傳 date d 所屬『週五~下週四』週的錨點（該週的星期五）。
+    對齊集保戶股權分散表的每週統計區間（週五到下週四）。"""
+    wd = d.weekday()                 # Mon=0 ... Fri=4, Sat=5, Sun=6
+    if wd == 4:                      # 星期五：本身即錨點
+        return d
+    if wd < 4:                       # 週一~週四：往回找上一個星期五
+        return d - datetime.timedelta(days=wd + 3)
+    return d - datetime.timedelta(days=wd - 4)   # 週六/日：回到本週五
+
+
 def current_week_wkey():
-    """以最新交易日所在的日曆週(週一起)，回傳 (wkey, 該週週一)。
-    wkey = 該週「最早~最晚」有資料的交易日（不滿一週就是部分範圍）。"""
+    """以最新交易日所在的『週五~下週四』週，回傳 (wkey, 該週錨點星期五)。
+    wkey = 該週「最早~最晚」有資料的交易日（不滿一週就是部分範圍，結尾用目前最後一天）。"""
     latest = _latest_daily_date()
     if not latest:
         sys.exit("site/data 下找不到任何每日資料夾")
     dt = datetime.datetime.strptime(latest, "%Y%m%d").date()
-    monday = dt - datetime.timedelta(days=dt.weekday())
+    fri = _anchor_friday(dt)
     covered = []
-    d = monday
-    while d <= dt:
+    d = fri
+    while d <= dt:                   # 錨點星期五 → 最新交易日
         ymd = d.strftime("%Y%m%d")
         if os.path.isdir(os.path.join(OUT_DIR, ymd)):
             covered.append(ymd)
         d += datetime.timedelta(days=1)
     if not covered:
-        sys.exit(f"本週({monday}~{dt})無任何日資料")
+        sys.exit(f"本週({fri}~{dt})無任何日資料")
     wkey = covered[0] + "-" + covered[-1][4:]   # YYYYMMDD-MMDD
-    return wkey, monday
+    return wkey, fri
 
 
-def _monday_of(ymd):
-    dt = datetime.datetime.strptime(ymd, "%Y%m%d").date()
-    return dt - datetime.timedelta(days=dt.weekday())
-
-
-def remove_stale_same_week(monday, keep_wkey):
-    """刪掉 site/data/weekly 下、屬於同一日曆週(同週一)但 wkey 不同的舊(部分)桶，
-    確保每個日曆週只留一個桶（避免每天滾動產生重複部分桶）。"""
+def remove_stale_same_week(anchor_fri, keep_wkey):
+    """刪掉 site/data/weekly 下、屬於同一週(同錨點星期五)但 wkey 不同的舊(部分)桶，
+    確保每週只留一個桶（避免每天滾動產生重複部分桶）。"""
     wroot = os.path.join(OUT_DIR, "weekly")
     if not os.path.isdir(wroot):
         return
@@ -253,7 +260,8 @@ def remove_stale_same_week(monday, keep_wkey):
         if not os.path.isdir(d) or not re.match(r"\d{8}-\d{4,8}$", wk) or wk == keep_wkey:
             continue
         try:
-            if _monday_of(wk.split("-")[0]) == monday:
+            sdt = datetime.datetime.strptime(wk.split("-")[0], "%Y%m%d").date()
+            if _anchor_friday(sdt) == anchor_fri:
                 shutil.rmtree(d)
                 print(f"  移除同週舊桶：{wk}", flush=True)
         except Exception:
@@ -274,9 +282,9 @@ def main():
     con = sqlite3.connect(DB_PATH)
     try:
         if args.current:
-            wkey, monday = current_week_wkey()
-            print(f"當前週 wkey = {wkey}（{monday} 那一週）", flush=True)
-            remove_stale_same_week(monday, wkey)
+            wkey, anchor = current_week_wkey()
+            print(f"當前週 wkey = {wkey}（錨點星期五 {anchor}）", flush=True)
+            remove_stale_same_week(anchor, wkey)
             generate(wkey, con)
         elif not args.wkey:
             ap.error("請提供 wkey，或用 --current")
