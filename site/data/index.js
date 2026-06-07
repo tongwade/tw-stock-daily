@@ -290,6 +290,11 @@ window.__DATAREG&&window.__DATAREG("index",{
           "mkt": "TW"
         },
         {
+          "code": "4938",
+          "name": "和碩",
+          "mkt": "TW"
+        },
+        {
           "code": "6257",
           "name": "矽格",
           "mkt": "TW"
@@ -297,6 +302,11 @@ window.__DATAREG&&window.__DATAREG("index",{
         {
           "code": "6261",
           "name": "久元",
+          "mkt": "TW"
+        },
+        {
+          "code": "9938",
+          "name": "百和",
           "mkt": "TW"
         }
       ]
