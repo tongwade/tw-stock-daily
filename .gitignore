@@ -1,0 +1,30 @@
+# 原始每日資料（不上傳，僅保留 site/data 的處理後資料）
+/data/
+
+# 內部實作規劃文件（僅保留本機，不上傳 GitHub）
+個股資訊網站_實作規劃.md
+
+# Claude Code 本機個人設定（不上傳；skills 仍會上傳）
+.claude/settings.local.json
+
+# Wrangler（Cloudflare Pages 部署）本機快取/狀態
+.wrangler/
+
+# patchright/Playwright 持久化瀏覽器設定檔（存 cf_clearance；本機用，勿上傳）
+.patchright_profile/
+.pw_chrome_profile/
+
+# 本機資料庫與原始輸出（二進位/大檔，勿上傳）
+*.db
+*.db.bak
+/out/
+__pycache__/
+
+# 個人/不相關檔案（放在 repo 資料夾內但與本專案無關，不上傳）
+/course/
+
+# 雜項
+site/smoke.out
+*.log
+.DS_Store
+Thumbs.db

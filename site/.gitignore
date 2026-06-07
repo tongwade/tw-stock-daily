@@ -1,0 +1,8 @@
+# 驗證/安裝暫存檔（可忽略）
+smoke.js
+smoke.out
+.pw_install.log
+
+# 網站實際使用 .js 版資料，.json 為中間產物不需上傳
+data/**/*.json
+data/*.json
